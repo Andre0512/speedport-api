@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import json
 import re
+import time
 from hashlib import sha256
 from json import JSONDecodeError
+from pprint import pprint
 
 import requests as requests
 from Crypto.Cipher import AES
@@ -16,6 +18,7 @@ class WlanDevice(dict):
 
 class Speedport:
     def __init__(self, host="speedport.ip"):
+        # Is this the default key for everyone or should we parse it?
         self._default_key = "cdc0cac1280b516e674f0057e4929bca84447cca8425007e33a88a5cf598a190"
         self._login_key = ""
         self._cookies = {}
@@ -41,15 +44,16 @@ class Speedport:
         url = f"{self._url}/{path}"
         kwargs = {"cookies": self._cookies}
         if referer:
-            kwargs.update({"headers": {"Referer": f"{self._url}/{referer}"}})
+            referer = f"{self._url}/{referer}"
+            kwargs.update({"headers": {"Referer": referer}})
             url += f"?_tn={self._get_httoken(referer)}"
         response = requests.get(url, **kwargs).text
         return self.decode(response, key=key)
 
-    def post(self, url, data, referer):
+    def post(self, path, data, referer):
         referer = f"{self._url}/{referer}"
         data = self.encode(f"{data}&httoken={self._get_httoken(referer)}", key=self._login_key)
-        response = requests.post(url, cookies=self._cookies, headers={"Referer": referer}, data=data).text
+        response = requests.post(f"{self._url}/{path}", cookies=self._cookies, headers={"Referer": referer}, data=data).text
         return self.decode(response, key=self._login_key)
 
     def _get_httoken(self, url):
@@ -75,10 +79,11 @@ class Speedport:
         return self._login_key
 
     def login(self, password):
+        """  """
         if not self._login_key:
             login_key = sha256(f"{self._get_login_key()}:{password}".encode()).hexdigest()
             data = self.encode("showpw=0&password=" + login_key)
-            response = requests.post(f"data/Login.json", data=data)
+            response = requests.post(f"{self._url}/data/Login.json", data=data)
             self._cookies = response.cookies
 
     @property
@@ -115,6 +120,7 @@ class Speedport:
         return self.get(f"data/WPSStatus.json", referer=referer)["wlan_wps_state"]
 
     def _set_wifi(self, on=True, guest=False):
+        """ Set wifi on/off """
         data = f"wlan_guest_active={int(on)}" if guest else f"use_wlan={int(on)}"
         referer = f"html/content/network/wlan_{'guest' if guest else 'basic'}.html"
         return self.post(f"data/{'WLANBasic' if guest else 'Modules'}.json", data, referer)
@@ -135,4 +141,4 @@ class Speedport:
         self.post("data/WLANAccess.json", "wlan_add=on&wps_key=connect", "html/content/network/wlan_wps.html")
 
     def reconnect(self):
-        self.post(f"data/Connect.json", "req_connect=reconnect", f"html/content/internet/con_ipdata.html")
+        self.post("data/Connect.json", "req_connect=reconnect", "html/content/internet/con_ipdata.html")
