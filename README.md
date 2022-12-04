@@ -8,10 +8,22 @@ Control Telekom Speedport routers with Python!
 ```commandline
 pip install speedport-api
 ```
-## Tool
+## Commandline tool
 With this shipped commandline tool can a speedport in your network be controlled.
 #### Turn wifi off
 ```commandline
-speedport -p your_password --wifi on
+speedport wifi off
+```
+#### Turn guest wifi on
+```commandline
+speedport guest-wifi on
+```
+#### Reconnect for new ip address
+```commandline
+speedport reconnect
+```
+#### Enable wps connect
+```commandline
+speedport wps
 ```
 ## Library

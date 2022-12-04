@@ -3,6 +3,7 @@ import argparse
 import logging
 import sys
 import time
+from getpass import getpass
 
 from .speedport import Speedport
 
@@ -11,9 +12,9 @@ _LOGGER = logging.getLogger("")
 
 def set_logger(args):
     logging.getLogger("requests").setLevel(logging.WARNING)
-    if args.debug:
+    if args["debug"]:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format="%(levelname)s - %(message)s")
-    elif args.quiet:
+    elif args["quiet"]:
         logging.basicConfig(stream=sys.stdout, level=logging.WARNING, format="%(message)s")
     else:
         logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -21,34 +22,41 @@ def set_logger(args):
 
 def get_arguments():
     """Get parsed arguments."""
-    parser = argparse.ArgumentParser("Speedport: Command Line Utility")
-    parser.add_argument("-H", "--host-ip", help="Router ip", default="speedport_api.ip")
-    parser.add_argument("-p", "--password", help="Password", required=True)
-    parser.add_argument("-w", "--wifi", choices=["on", "off"], help="Turn on/off wifi")
-    parser.add_argument("-g", "--guest-wifi", choices=["on", "off"], help="Turn on/off guest wifi")
-    parser.add_argument("-r", "--reconnect", help="Reconnect internet and receive new ip", action="store_true")
-    parser.add_argument("--wps", help="Turn on wps for 2 minutes", action="store_true")
-    parser.add_argument("-d", "--debug", help="Enable debug logging", action="store_true")
-    parser.add_argument("-q", "--quiet", help="Output only errors", action="store_true")
-    return parser.parse_args()
+    parser = argparse.ArgumentParser(description="Speedport: Command Line Utility")
+    parser.add_argument("-H", "--host", help="ip address or hostname of Speedport webinterface", default="speedport.ip")
+    parser.add_argument("-p", "--password", help="password of Speedport webinterface")
+    parser.add_argument("-d", "--debug", help="enable debug logging", action="store_true")
+    parser.add_argument("-q", "--quiet", help="output only errors", action="store_true")
+    subparser = parser.add_subparsers(title="commands", metavar="COMMAND")
+    wifi = subparser.add_parser("wifi", help="Turn on/off wifi")
+    wifi.add_argument("wifi", choices=["on", "off"], help="Turn on/off wifi")
+    guest = subparser.add_parser("guest-wifi", help="Turn on/off guest wifi")
+    guest.add_argument("guest-wifi", choices=["on", "off"], help="Turn on/off guest wifi")
+    reconnect = subparser.add_parser("reconnect", help="Reconnect internet and receive new ip")
+    reconnect.add_argument("reconnect", help="Reconnect internet and receive new ip", action="store_true")
+    wps = subparser.add_parser("wps", help="Turn on wps for 2 minutes")
+    wps.add_argument("wps", help="Turn on wps for 2 minutes", action="store_true")
+    return vars(parser.parse_args())
 
 
 def main():
     args = get_arguments()
     set_logger(args)
-    speedport = Speedport(args.host_ip)
-    speedport.login(password=args.password)
-    if args.wifi and args.wifi == "on":
+    speedport = Speedport(args["host"])
+    if not (password := args["password"]):
+        password = getpass("Password of Speedports webinterface: ")
+    speedport.login(password=password)
+    if args.get("wifi") and args["wifi"] == "on":
         speedport.wifi_on()
-    elif args.wifi and args.wifi == "off":
+    elif args.get("wifi") and args["wifi"] == "off":
         speedport.wifi_off()
-    if args.guest_wifi and args.wifi == "on":
+    if args.get("guest_wifi") and args["guest_wifi"] == "on":
         speedport.wifi_on()
-    elif args.guest_wifi and args.wifi == "off":
+    elif args.get("guest_wifi") and args["guest_wifi"] == "off":
         speedport.wifi_off()
-    if args.wps:
+    if args.get("wps"):
         speedport.wps_on()
-    if args.reconnect:
+    if args.get("reconnect"):
         _LOGGER.info(f"ipv4 {(ip_data := speedport.ip_data)['public_ip_v4']}\nipv6 {ip_data['public_ip_v6']}")
         speedport.reconnect()
         while not (ip_data := speedport.ip_data)["onlinestatus"] == "online":
