@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import asyncio
 import logging
 import sys
 import time
@@ -11,7 +12,7 @@ _LOGGER = logging.getLogger("speedport")
 
 
 def set_logger(args):
-    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("aiohttp").setLevel(logging.WARNING)
     if args["debug"]:
         _LOGGER.setLevel(logging.DEBUG)
         formatter = logging.Formatter("%(levelname)s - %(message)s")
@@ -45,30 +46,30 @@ def get_arguments():
     return vars(parser.parse_args())
 
 
-def main():
+async def main():
     args = get_arguments()
     set_logger(args)
-    speedport = Speedport(args["host"])
-    if not (password := args["password"]):
-        password = getpass("Password of Speedports webinterface: ")
-    speedport.login(password=password)
-    if args.get("wifi") and args["wifi"] == "on":
-        speedport.wifi_on()
-    elif args.get("wifi") and args["wifi"] == "off":
-        speedport.wifi_off()
-    if args.get("guest_wifi") and args["guest_wifi"] == "on":
-        speedport.wifi_on()
-    elif args.get("guest_wifi") and args["guest_wifi"] == "off":
-        speedport.wifi_off()
-    if args.get("wps"):
-        speedport.wps_on()
-    if args.get("reconnect"):
-        _LOGGER.info(f"ipv4 {(ip_data := speedport.ip_data)['public_ip_v4']}\nipv6 {ip_data['public_ip_v6']}")
-        speedport.reconnect()
-        while not (ip_data := speedport.ip_data)["onlinestatus"] == "online":
-            time.sleep(0.5)
-        _LOGGER.info(f"ipv4 {ip_data['public_ip_v4']}\nipv6 {ip_data['public_ip_v6']}")
+    async with Speedport(args["host"]) as speedport:
+        if not (password := args["password"]):
+            password = getpass("Password of Speedports webinterface: ")
+        await speedport.login(password=password)
+        if args.get("wifi") and args["wifi"] == "on":
+            await speedport.wifi_on()
+        elif args.get("wifi") and args["wifi"] == "off":
+            await speedport.wifi_off()
+        if args.get("guest-wifi") and args["guest-wifi"] == "on":
+            await speedport.wifi_guest_on()
+        elif args.get("guest-wifi") and args["guest-wifi"] == "off":
+            await speedport.wifi_guest_off()
+        if args.get("wps"):
+            await speedport.wps_on()
+        if args.get("reconnect"):
+            _LOGGER.info(f"ipv4 {(ip_data := await speedport.ip_data)['public_ip_v4']}\nipv6 {ip_data['public_ip_v6']}")
+            await speedport.reconnect()
+            while not (ip_data := await speedport.ip_data)["onlinestatus"] == "online":
+                time.sleep(0.5)
+            _LOGGER.info(f"ipv4 {ip_data['public_ip_v4']}\nipv6 {ip_data['public_ip_v6']}")
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

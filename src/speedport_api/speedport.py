@@ -5,7 +5,7 @@ import re
 from hashlib import sha256
 from json import JSONDecodeError
 
-import requests as requests
+import aiohttp
 from Crypto.Cipher import AES
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,6 +25,15 @@ class Speedport:
         self._login_key = ""
         self._cookies = {}
         self._url = f"http://{host}"
+        self._session = None
+
+    async def __aenter__(self):
+        self._session = aiohttp.ClientSession()
+        return self
+
+    async def __aexit__(self, *err):
+        await self._session.close()
+        self._session = None
 
     def decode(self, data, key=""):
         key = key or self._default_key
@@ -42,29 +51,29 @@ class Speedport:
         ciphertext, tag = cipher.encrypt_and_digest(data.encode())
         return ciphertext.hex() + tag.hex()
 
-    def get(self, path, key="", referer=""):
+    async def get(self, path, key="", referer=""):
         url = f"{self._url}/{path}"
         kwargs = {"cookies": self._cookies}
         if referer:
             referer = f"{self._url}/{referer}"
             kwargs.update({"headers": {"Referer": referer}})
-            url += f"?_tn={self._get_httoken(referer)}"
-        response = requests.get(url, **kwargs)
-        _LOGGER.debug(f"GET - {url} - {response.status_code}")
-        return self.decode(response.text, key=key)
+            url += f"?_tn={await self._get_httoken(referer)}"
+        async with self._session.get(url, **kwargs) as response:
+            _LOGGER.debug(f"GET - {url} - {response.status}")
+            return self.decode(await response.text(), key=key)
 
-    def post(self, path, data, referer):
+    async def post(self, path, data, referer):
         url = f"{self._url}/{path}"
         referer = f"{self._url}/{referer}"
-        data = self.encode(f"{data}&httoken={self._get_httoken(referer)}", key=self._login_key)
-        response = requests.post(url, cookies=self._cookies, headers={"Referer": referer}, data=data)
-        _LOGGER.debug(f"POST - {url} - {response.status_code}")
-        return self.decode(response.text, key=self._login_key)
+        data = self.encode(f"{data}&httoken={await self._get_httoken(referer)}", key=self._login_key)
+        async with self._session.post(url, cookies=self._cookies, headers={"Referer": referer}, data=data) as response:
+            _LOGGER.debug(f"POST - {url} - {response.status}")
+            return self.decode(await response.text(), key=self._login_key)
 
-    def _get_httoken(self, url):
-        response = requests.get(url, cookies=self._cookies)
-        _LOGGER.debug(f"GET - {url} - {response.status_code}")
-        return re.findall("_httoken = (\\d+)", response.text)[0]
+    async def _get_httoken(self, url):
+        async with self._session.get(url, cookies=self._cookies) as response:
+            _LOGGER.debug(f"GET - {url} - {response.status}")
+            return re.findall("_httoken = (\\d+)", await response.text())[0]
 
     @staticmethod
     def _simplify_response(data):
@@ -79,28 +88,28 @@ class Speedport:
                 result[item["varid"]] = item["varvalue"]
         return result
 
-    def _get_login_key(self):
+    async def _get_login_key(self):
         if not self._login_key:
-            self._login_key = self.post("data/Login.json", "getChallenge=1", "/")['challenge']
+            self._login_key = (await self.post("data/Login.json", "getChallenge=1", "/"))['challenge']
         return self._login_key
 
-    def login(self, password):
+    async def login(self, password):
         """  """
         if not self._login_key:
             url = f"{self._url}/data/Login.json"
-            login_key = sha256(f"{self._get_login_key()}:{password}".encode()).hexdigest()
+            login_key = sha256(f"{await self._get_login_key()}:{password}".encode()).hexdigest()
             data = self.encode("showpw=0&password=" + login_key)
-            response = requests.post(url, data=data)
-            _LOGGER.debug(f"POST - {url} - {response.status_code}")
-            self._cookies = response.cookies
+            async with self._session.post(url, data=data) as response:
+                _LOGGER.debug(f"POST - {url} - {response.status}")
+                self._cookies = response.cookies
 
     @property
-    def status(self):
-        return self.get("data/Status.json")
+    async def status(self):
+        return await self.get("data/Status.json")
 
     @property
-    def devices(self):
-        data = self.get("data/DeviceList.json")
+    async def devices(self):
+        data = await self.get("data/DeviceList.json")
         result = []
         devices = data.get("addmlandevice", []) + data.get("addmwlan5device", []) + data.get("addmwlandevice", [])
         for device in devices:
@@ -118,38 +127,38 @@ class Speedport:
         return result
 
     @property
-    def ip_data(self):
+    async def ip_data(self):
         referer = "html/content/internet/con_ipdata.html"
-        return self.get(f"data/IPData.json", referer=referer, key=self._login_key)
+        return await self.get(f"data/IPData.json", referer=referer, key=self._login_key)
 
     @property
-    def wps_state(self):
+    async def wps_state(self):
         referer = "html/content/network/wlan_wps.html"
-        return self.get(f"data/WPSStatus.json", referer=referer)["wlan_wps_state"]
+        return (await self.get(f"data/WPSStatus.json", referer=referer))["wlan_wps_state"]
 
-    def _set_wifi(self, on=True, guest=False):
+    async def _set_wifi(self, on=True, guest=False):
         """ Set wifi on/off """
         _LOGGER.info(f"Turn {['off', 'on'][bool(on)]}{' guest' if guest else ''} wifi...")
         data = f"wlan_guest_active={int(on)}" if guest else f"use_wlan={int(on)}"
         referer = f"html/content/network/wlan_{'guest' if guest else 'basic'}.html"
-        return self.post(f"data/{'WLANBasic' if guest else 'Modules'}.json", data, referer)
+        return await self.post(f"data/{'WLANBasic' if guest else 'Modules'}.json", data, referer)
 
-    def wifi_on(self):
-        self._set_wifi(on=True, guest=False)
+    async def wifi_on(self):
+        await self._set_wifi(on=True, guest=False)
 
-    def wifi_off(self):
-        self._set_wifi(on=False, guest=False)
+    async def wifi_off(self):
+        await self._set_wifi(on=False, guest=False)
 
-    def wifi_guest_on(self):
-        self._set_wifi(on=True, guest=True)
+    async def wifi_guest_on(self):
+        await self._set_wifi(on=True, guest=True)
 
-    def wifi_guest_off(self):
-        self._set_wifi(on=False, guest=True)
+    async def wifi_guest_off(self):
+        await self._set_wifi(on=False, guest=True)
 
-    def wps_on(self):
+    async def wps_on(self):
         _LOGGER.info("Enable wps connect for 120 seconds...")
-        self.post("data/WLANAccess.json", "wlan_add=on&wps_key=connect", "html/content/network/wlan_wps.html")
+        await self.post("data/WLANAccess.json", "wlan_add=on&wps_key=connect", "html/content/network/wlan_wps.html")
 
-    def reconnect(self):
+    async def reconnect(self):
         _LOGGER.info("Reconnect with internet provider...")
-        self.post("data/Connect.json", "req_connect=reconnect", "html/content/internet/con_ipdata.html")
+        await self.post("data/Connect.json", "req_connect=reconnect", "html/content/internet/con_ipdata.html")
