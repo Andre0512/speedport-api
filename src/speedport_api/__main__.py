@@ -4,7 +4,7 @@ import logging
 import sys
 import time
 
-from main import Speedport
+from .speedport import Speedport
 
 _LOGGER = logging.getLogger("")
 
@@ -21,8 +21,8 @@ def set_logger(args):
 
 def get_arguments():
     """Get parsed arguments."""
-    parser = argparse.ArgumentParser("Speedport Smart 4: Command Line Utility")
-    parser.add_argument("-H", "--host-ip", help="Router ip", default="speedport.ip")
+    parser = argparse.ArgumentParser("Speedport: Command Line Utility")
+    parser.add_argument("-H", "--host-ip", help="Router ip", default="speedport_api.ip")
     parser.add_argument("-p", "--password", help="Password", required=True)
     parser.add_argument("-w", "--wifi", choices=["on", "off"], help="Turn on/off wifi")
     parser.add_argument("-g", "--guest-wifi", choices=["on", "off"], help="Turn on/off guest wifi")

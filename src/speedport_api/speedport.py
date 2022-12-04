@@ -19,7 +19,7 @@ class WlanDevice(dict):
 
 
 class Speedport:
-    def __init__(self, host="speedport.ip"):
+    def __init__(self, host="speedport_api.ip"):
         # Is this the default key for everyone or should we parse it?
         self._default_key = "cdc0cac1280b516e674f0057e4929bca84447cca8425007e33a88a5cf598a190"
         self._login_key = ""
