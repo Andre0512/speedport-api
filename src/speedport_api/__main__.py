@@ -7,17 +7,23 @@ from getpass import getpass
 
 from .speedport import Speedport
 
-_LOGGER = logging.getLogger("")
+_LOGGER = logging.getLogger("speedport")
 
 
 def set_logger(args):
     logging.getLogger("requests").setLevel(logging.WARNING)
     if args["debug"]:
-        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format="%(levelname)s - %(message)s")
+        _LOGGER.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("%(levelname)s - %(message)s")
     elif args["quiet"]:
-        logging.basicConfig(stream=sys.stdout, level=logging.WARNING, format="%(message)s")
+        _LOGGER.setLevel(logging.WARNING)
+        formatter = logging.Formatter("%(message)s")
     else:
-        logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
+        _LOGGER.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(message)s")
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    _LOGGER.addHandler(console_handler)
 
 
 def get_arguments():
@@ -27,7 +33,7 @@ def get_arguments():
     parser.add_argument("-p", "--password", help="password of Speedport webinterface")
     parser.add_argument("-d", "--debug", help="enable debug logging", action="store_true")
     parser.add_argument("-q", "--quiet", help="output only errors", action="store_true")
-    subparser = parser.add_subparsers(title="commands", metavar="COMMAND")
+    subparser = parser.add_subparsers(title="commands", metavar="COMMAND", required=True)
     wifi = subparser.add_parser("wifi", help="Turn on/off wifi")
     wifi.add_argument("wifi", choices=["on", "off"], help="Turn on/off wifi")
     guest = subparser.add_parser("guest-wifi", help="Turn on/off guest wifi")
