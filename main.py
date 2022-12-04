@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 import json
+import logging
 import re
-import time
 from hashlib import sha256
 from json import JSONDecodeError
-from pprint import pprint
 
 import requests as requests
 from Crypto.Cipher import AES
+
+_LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.WARNING)
 
 
 class WlanDevice(dict):
@@ -47,17 +49,21 @@ class Speedport:
             referer = f"{self._url}/{referer}"
             kwargs.update({"headers": {"Referer": referer}})
             url += f"?_tn={self._get_httoken(referer)}"
-        response = requests.get(url, **kwargs).text
-        return self.decode(response, key=key)
+        response = requests.get(url, **kwargs)
+        _LOGGER.debug(f"GET - {url} - {response.status_code}")
+        return self.decode(response.text, key=key)
 
     def post(self, path, data, referer):
+        url = f"{self._url}/{path}"
         referer = f"{self._url}/{referer}"
         data = self.encode(f"{data}&httoken={self._get_httoken(referer)}", key=self._login_key)
-        response = requests.post(f"{self._url}/{path}", cookies=self._cookies, headers={"Referer": referer}, data=data).text
-        return self.decode(response, key=self._login_key)
+        response = requests.post(url, cookies=self._cookies, headers={"Referer": referer}, data=data)
+        _LOGGER.debug(f"POST - {url} - {response.status_code}")
+        return self.decode(response.text, key=self._login_key)
 
     def _get_httoken(self, url):
         response = requests.get(url, cookies=self._cookies)
+        _LOGGER.debug(f"GET - {url} - {response.status_code}")
         return re.findall("_httoken = (\\d+)", response.text)[0]
 
     @staticmethod
@@ -81,9 +87,11 @@ class Speedport:
     def login(self, password):
         """  """
         if not self._login_key:
+            url = f"{self._url}/data/Login.json"
             login_key = sha256(f"{self._get_login_key()}:{password}".encode()).hexdigest()
             data = self.encode("showpw=0&password=" + login_key)
-            response = requests.post(f"{self._url}/data/Login.json", data=data)
+            response = requests.post(url, data=data)
+            _LOGGER.debug(f"POST - {url} - {response.status_code}")
             self._cookies = response.cookies
 
     @property
@@ -121,6 +129,7 @@ class Speedport:
 
     def _set_wifi(self, on=True, guest=False):
         """ Set wifi on/off """
+        _LOGGER.info(f"Turn {['off', 'on'][bool(on)]}{' guest' if guest else ''} wifi...")
         data = f"wlan_guest_active={int(on)}" if guest else f"use_wlan={int(on)}"
         referer = f"html/content/network/wlan_{'guest' if guest else 'basic'}.html"
         return self.post(f"data/{'WLANBasic' if guest else 'Modules'}.json", data, referer)
@@ -138,7 +147,9 @@ class Speedport:
         self._set_wifi(on=False, guest=True)
 
     def wps_on(self):
+        _LOGGER.info("Enable wps connect for 120 seconds...")
         self.post("data/WLANAccess.json", "wlan_add=on&wps_key=connect", "html/content/network/wlan_wps.html")
 
     def reconnect(self):
+        _LOGGER.info("Reconnect with internet provider...")
         self.post("data/Connect.json", "req_connect=reconnect", "html/content/internet/con_ipdata.html")
