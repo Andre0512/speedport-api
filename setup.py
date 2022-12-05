@@ -11,7 +11,7 @@ with open('requirements.txt') as f:
 
 setup(
     name="speedport-api",
-    version="0.2.0",
+    version="0.2.1",
     author="Andre Basche",
     description="Control Telekom Speedport routers with Python",
     long_description=long_description,

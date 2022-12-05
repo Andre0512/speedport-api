@@ -66,7 +66,7 @@ class Speedport:
         url = f"{self._url}/{path}"
         referer = f"{self._url}/{referer}"
         data = self.encode(f"{data}&httoken={await self._get_httoken(referer)}", key=self._login_key)
-        async with self._session.post(url, cookies=self._cookies, headers={"Referer": referer}, data=data) as response:
+        async with self._session.post(url, cookies=self._cookies, headers={"Referer": referer}, data=data, timeout=30) as response:
             _LOGGER.debug(f"POST - {url} - {response.status}")
             return self.decode(await response.text(), key=self._login_key)
 
@@ -134,7 +134,7 @@ class Speedport:
     @property
     async def wps_state(self):
         referer = "html/content/network/wlan_wps.html"
-        return (await self.get(f"data/WPSStatus.json", referer=referer))["wlan_wps_state"]
+        return int((await self.get(f"data/WPSStatus.json", referer=referer))["wlan_wps_state"])
 
     async def _set_wifi(self, on=True, guest=False):
         """ Set wifi on/off """
@@ -156,7 +156,7 @@ class Speedport:
         await self._set_wifi(on=False, guest=True)
 
     async def wps_on(self):
-        _LOGGER.info("Enable wps connect for 120 seconds...")
+        _LOGGER.info("Enable wps connect...")
         await self.post("data/WLANAccess.json", "wlan_add=on&wps_key=connect", "html/content/network/wlan_wps.html")
 
     async def reconnect(self):

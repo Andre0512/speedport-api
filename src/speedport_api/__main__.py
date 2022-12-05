@@ -62,14 +62,37 @@ async def main():
         elif args.get("guest-wifi") and args["guest-wifi"] == "off":
             await speedport.wifi_guest_off()
         if args.get("wps"):
-            await speedport.wps_on()
+            await wps_enable(args, speedport)
         if args.get("reconnect"):
-            _LOGGER.info(f"ipv4 {(ip_data := await speedport.ip_data)['public_ip_v4']}\nipv6 {ip_data['public_ip_v6']}")
-            await speedport.reconnect()
-            while not (ip_data := await speedport.ip_data)["onlinestatus"] == "online":
-                time.sleep(0.5)
-            _LOGGER.info(f"ipv4 {ip_data['public_ip_v4']}\nipv6 {ip_data['public_ip_v6']}")
+            await reconnect(args, speedport)
+
+
+async def reconnect(args, speedport):
+    if not args.get("quiet"):
+        _LOGGER.info(f"{(ip_data := await speedport.ip_data)['public_ip_v4']} / {ip_data['public_ip_v6']}")
+    await speedport.reconnect()
+    if not args.get("quiet"):
+        for i in range(240):
+            if (ip_data := await speedport.ip_data)["onlinestatus"] == "online":
+                _LOGGER.info(f"{ip_data['public_ip_v4']} / {ip_data['public_ip_v6']}")
+                break
+            await asyncio.sleep(0.5)
+            print(f"Connecting.{'.' * (i % 3)}  ", end="\r", flush=True)
+
+
+async def wps_enable(args, speedport):
+    await speedport.wps_on()
+    if not args.get("quiet"):
+        event = time.time()
+        next_time = event
+        while await speedport.wps_state == 1:
+            await asyncio.sleep(next_time - time.time())
+            next_time = time.time() + 1
+            print(f"wps connect enabled for {120 - int(time.time() - event)}s...", end="\r", flush=True)
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Aborted.")
