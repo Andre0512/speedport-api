@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from pathlib import Path
 
 from setuptools import setup
 
@@ -11,7 +10,7 @@ with open('requirements.txt') as f:
 
 setup(
     name="speedport-api",
-    version="0.2.1",
+    version="0.3.0",
     author="Andre Basche",
     description="Control Telekom Speedport routers with Python",
     long_description=long_description,
@@ -21,13 +20,13 @@ setup(
     platforms="any",
     py_modules=["jeelink-python"],
     package_dir={"": "src"},
-    packages=["speedport_api"],
+    packages=["speedport"],
     include_package_data=True,
     python_requires=">=3.8",
     install_requires=requirements,
     entry_points={
         'console_scripts': [
-            'speedport = speedport_api.__main__:main',
+            'speedport = speedport.__main__:start',
         ]
     }
 )

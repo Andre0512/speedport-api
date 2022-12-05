@@ -6,7 +6,7 @@ import sys
 import time
 from getpass import getpass
 
-from .speedport import Speedport
+from speedport import Speedport
 
 _LOGGER = logging.getLogger("speedport")
 
@@ -91,8 +91,12 @@ async def wps_enable(args, speedport):
             print(f"wps connect enabled for {120 - int(time.time() - event)}s...", end="\r", flush=True)
 
 
-if __name__ == '__main__':
+def start():
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Aborted.")
+
+
+if __name__ == '__main__':
+    start()
