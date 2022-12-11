@@ -46,6 +46,17 @@ $ speedport reboot
 Reboot speedport...
 ```
 
+#### Print devices
+```commandline
+$ speedport devices
++-------------+---------------------+-------+-----------+
+| ipv4        | name                | type  | connected |
++-------------+---------------------+-------+-----------+
+| 10.5.12.32  | Google-Home-Mini-1  | wlan  | 1         |
+| 10.5.12.157 | PC10-5-12-157       | lan   | 0         |
+| 10.5.12.227 | andre-xps           | wlan5 | 1         |
+```
+
 ### Library
 
 #### Reconnect example
@@ -54,9 +65,19 @@ import asyncio
 from speedport import Speedport
 
 async def reconnect():
-    speedport =  Speedport("192.168.178.1")
+    speedport =  Speedport("192.168.1.1")
     await speedport.login("password123")
     await speedport.reconnect()
 
 asyncio.run(reconnect())
+```
+
+#### Devices example
+```python
+import asyncio
+from speedport import Speedport
+
+devices = asyncio.run(Speedport().devices)
+for device in devices:
+    print(device.ipv4, device.connected)
 ```
