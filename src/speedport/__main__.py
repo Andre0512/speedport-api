@@ -69,7 +69,8 @@ async def main():
     if not args.get("devices"):
         if not (password := args["password"]):
             password = getpass("Password of Speedports webinterface: ")
-        await speedport.login(password=password)
+        if not await speedport.login(password=password):
+            print("Can't login! Wrong password?")
     if args.get("wifi") and args["wifi"] == "on":
         await speedport.wifi_on()
     elif args.get("wifi") and args["wifi"] == "off":
