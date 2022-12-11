@@ -35,12 +35,13 @@ def get_arguments():
     parser.add_argument("-d", "--debug", help="enable debug logging", action="store_true")
     parser.add_argument("-q", "--quiet", help="output only errors", action="store_true")
     subparser = parser.add_subparsers(title="commands", metavar="COMMAND", required=True)
-    wifi = subparser.add_parser("wifi", help="Turn on/off wifi")
-    wifi.add_argument("wifi", choices=["on", "off"], help="Turn on/off wifi")
-    guest = subparser.add_parser("guest-wifi", help="Turn on/off guest wifi")
-    guest.add_argument("guest-wifi", choices=["on", "off"], help="Turn on/off guest wifi")
+    for network in ["", "guest-", "office-"]:
+        wifi = subparser.add_parser(f"{network}wifi", help=f"Turn on/off {network}wifi")
+        wifi.add_argument(f"{network}wifi", choices=["on", "off"], help=f"Turn on/off {network}wifi")
     reconnect = subparser.add_parser("reconnect", help="Reconnect internet and receive new ip")
     reconnect.add_argument("reconnect", help="Reconnect internet and receive new ip", action="store_true")
+    reboot = subparser.add_parser("reboot", help="Reboot device")
+    reboot.add_argument("reboot", help="Reboot device", action="store_true")
     wps = subparser.add_parser("wps", help="Turn on wps for 2 minutes")
     wps.add_argument("wps", help="Turn on wps for 2 minutes", action="store_true")
     return vars(parser.parse_args())
@@ -61,10 +62,16 @@ async def main():
             await speedport.wifi_guest_on()
         elif args.get("guest-wifi") and args["guest-wifi"] == "off":
             await speedport.wifi_guest_off()
+        if args.get("office-wifi") and args["office-wifi"] == "on":
+            await speedport.wifi_office_on()
+        elif args.get("office-wifi") and args["office-wifi"] == "off":
+            await speedport.wifi_office_off()
         if args.get("wps"):
             await wps_enable(args, speedport)
         if args.get("reconnect"):
             await reconnect(args, speedport)
+        if args.get("reboot"):
+            await speedport.reboot()
 
 
 async def reconnect(args, speedport):
