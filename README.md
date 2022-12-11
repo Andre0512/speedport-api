@@ -54,9 +54,9 @@ import asyncio
 from speedport import Speedport
 
 async def reconnect():
-    async with Speedport("192.168.178.1") as speedport:
-        await speedport.login("password123")
-        await speedport.reconnect()
+    speedport =  Speedport("192.168.178.1")
+    await speedport.login("password123")
+    await speedport.reconnect()
 
 asyncio.run(reconnect())
 ```

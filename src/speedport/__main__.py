@@ -50,28 +50,28 @@ def get_arguments():
 async def main():
     args = get_arguments()
     set_logger(args)
-    async with Speedport(args["host"]) as speedport:
-        if not (password := args["password"]):
-            password = getpass("Password of Speedports webinterface: ")
-        await speedport.login(password=password)
-        if args.get("wifi") and args["wifi"] == "on":
-            await speedport.wifi_on()
-        elif args.get("wifi") and args["wifi"] == "off":
-            await speedport.wifi_off()
-        if args.get("guest-wifi") and args["guest-wifi"] == "on":
-            await speedport.wifi_guest_on()
-        elif args.get("guest-wifi") and args["guest-wifi"] == "off":
-            await speedport.wifi_guest_off()
-        if args.get("office-wifi") and args["office-wifi"] == "on":
-            await speedport.wifi_office_on()
-        elif args.get("office-wifi") and args["office-wifi"] == "off":
-            await speedport.wifi_office_off()
-        if args.get("wps"):
-            await wps_enable(args, speedport)
-        if args.get("reconnect"):
-            await reconnect(args, speedport)
-        if args.get("reboot"):
-            await speedport.reboot()
+    speedport = Speedport(args["host"])
+    if not (password := args["password"]):
+        password = getpass("Password of Speedports webinterface: ")
+    await speedport.login(password=password)
+    if args.get("wifi") and args["wifi"] == "on":
+        await speedport.wifi_on()
+    elif args.get("wifi") and args["wifi"] == "off":
+        await speedport.wifi_off()
+    if args.get("guest-wifi") and args["guest-wifi"] == "on":
+        await speedport.wifi_guest_on()
+    elif args.get("guest-wifi") and args["guest-wifi"] == "off":
+        await speedport.wifi_guest_off()
+    if args.get("office-wifi") and args["office-wifi"] == "on":
+        await speedport.wifi_office_on()
+    elif args.get("office-wifi") and args["office-wifi"] == "off":
+        await speedport.wifi_office_off()
+    if args.get("wps"):
+        await wps_enable(args, speedport)
+    if args.get("reconnect"):
+        await reconnect(args, speedport)
+    if args.get("reboot"):
+        await speedport.reboot()
 
 
 async def reconnect(args, speedport):
