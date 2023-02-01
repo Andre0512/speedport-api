@@ -17,13 +17,13 @@ _LOGGER.setLevel(logging.WARNING)
 
 
 class Speedport:
-    def __init__(self, host="speedport.ip"):
+    def __init__(self, host="speedport.ip", https=False):
         # Is this the default key for everyone or should we parse it?
         self._default_key = "cdc0cac1280b516e674f0057e4929bca84447cca8425007e33a88a5cf598a190"
         self._login_password = ""
         self._login_key = ""
         self._cookies = {}
-        self._url = f"http://{host}"
+        self._url = f"https://{host}" if https else f"http://{host}"
 
     def decode(self, data, key=""):
         key = key or self._default_key
@@ -48,7 +48,7 @@ class Speedport:
             referer = f"{self._url}/{referer}"
             kwargs.update({"headers": {"Referer": referer}})
             url += f"?_tn={await self._get_httoken(referer)}"
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.get(url, **kwargs) as response:
                 _LOGGER.debug(f"GET - {url} - {response.status}")
                 key = self._login_key if auth else self._default_key
@@ -60,14 +60,14 @@ class Speedport:
         data.update({"httoken": await self._get_httoken(referer)})
         data = "&".join([f"{k}={v}" for k, v in data.items()])
         data = self.encode(data, key=self._login_key)
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.post(url, cookies=self._cookies, headers={"Referer": referer}, data=data,
                                     timeout=30) as response:
                 _LOGGER.debug(f"POST - {url} - {response.status}")
                 return self.decode(await response.text(), key=self._login_key)
 
     async def _get_httoken(self, url):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.get(url, cookies=self._cookies) as response:
                 _LOGGER.debug(f"GET - {url} - {response.status}")
                 return re.findall("_httoken = (\\d+)", await response.text())[0]
@@ -92,16 +92,15 @@ class Speedport:
 
     async def login(self, password):
         self._login_password = password
-        if not self._login_key:
-            url = f"{self._url}/data/Login.json"
-            login_key = sha256(f"{await self._get_login_key()}:{password}".encode()).hexdigest()
-            data = self.encode("showpw=0&password=" + login_key)
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, data=data) as response:
-                    _LOGGER.debug(f"POST - {url} - {response.status}")
-                    if result := self.decode(await response.text())["login"] == "success":
-                        self._cookies = response.cookies
-                    return result
+        url = f"{self._url}/data/Login.json"
+        login_key = sha256(f"{await self._get_login_key()}:{password}".encode()).hexdigest()
+        data = self.encode("showpw=0&password=" + login_key)
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+            async with session.post(url, data=data) as response:
+                _LOGGER.debug(f"POST - {url} - {response.status}")
+                if result := self.decode(await response.text())["login"] == "success":
+                    self._cookies = response.cookies
+                return result
 
     @property
     async def status(self):

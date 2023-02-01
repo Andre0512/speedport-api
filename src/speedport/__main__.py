@@ -5,6 +5,10 @@ import logging
 import sys
 import time
 from getpass import getpass
+from pathlib import Path
+
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from speedport import Speedport
 
@@ -42,6 +46,7 @@ def get_arguments():
     """Get parsed arguments."""
     parser = argparse.ArgumentParser(description="Speedport: Command Line Utility")
     parser.add_argument("-H", "--host", help="ip address or hostname of Speedport webinterface", default="speedport.ip")
+    parser.add_argument("-s", "--https", help="use https connection", action="store_true")
     parser.add_argument("-p", "--password", help="password of Speedport webinterface")
     parser.add_argument("-d", "--debug", help="enable debug logging", action="store_true")
     parser.add_argument("-q", "--quiet", help="output only errors", action="store_true")
@@ -65,12 +70,13 @@ def get_arguments():
 async def main():
     args = get_arguments()
     set_logger(args)
-    speedport = Speedport(args["host"])
+    speedport = Speedport(args["host"], args.get("https"))
     if not args.get("devices"):
         if not (password := args["password"]):
             password = getpass("Password of Speedports webinterface: ")
         if not await speedport.login(password=password):
             print("Can't login! Wrong password?")
+            return
     if args.get("wifi") and args["wifi"] == "on":
         await speedport.wifi_on()
     elif args.get("wifi") and args["wifi"] == "off":

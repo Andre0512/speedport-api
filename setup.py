@@ -10,7 +10,7 @@ with open('requirements.txt') as f:
 
 setup(
     name="speedport-api",
-    version="0.4.3",
+    version="0.4.4",
     author="Andre Basche",
     description="Control Telekom Speedport routers with Python",
     long_description=long_description,
@@ -18,7 +18,6 @@ setup(
     url="https://github.com/Andre0512/speedport-api",
     license="MIT",
     platforms="any",
-    py_modules=["jeelink-python"],
     package_dir={"": "src"},
     packages=["speedport"],
     include_package_data=True,
