@@ -5,9 +5,6 @@ from setuptools import setup
 with open("README.md", "r") as f:
     long_description = f.read()
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-
 setup(
     name="speedport-api",
     version="0.4.4",
@@ -22,7 +19,7 @@ setup(
     packages=["speedport"],
     include_package_data=True,
     python_requires=">=3.8",
-    install_requires=requirements,
+    install_requires=["aiohttp", "pycryptodome"],
     entry_points={
         'console_scripts': [
             'speedport = speedport.__main__:start',
