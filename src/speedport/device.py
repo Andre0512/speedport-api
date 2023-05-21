@@ -64,7 +64,7 @@ class WlanDevice:
 
     @property
     def type(self):
-        return ["lan", "wlan", "wlan5"][int(self._data.get("mdevice_type"))]
+        return ["lan", "wlan", "wlan5"][int(self._data.get("mdevice_type", "0")) % 3]
 
     @property
     def ula_ipv6(self):

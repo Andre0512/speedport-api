@@ -7,7 +7,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="speedport-api",
-    version="0.4.4",
+    version="0.4.5",
     author="Andre Basche",
     description="Control Telekom Speedport routers with Python",
     long_description=long_description,
