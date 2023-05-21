@@ -16,6 +16,17 @@ _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.WARNING)
 
 
+def need_auth(func):
+    @functools.wraps(func)
+    async def inner(self):
+        if not self._login_key:
+            _LOGGER.error("You need to login!")
+            raise PermissionError("You need to login!")
+        return await func(self)
+
+    return inner
+
+
 class Speedport:
     def __init__(self, host="speedport.ip", https=False):
         # Is this the default key for everyone or should we parse it?
@@ -113,17 +124,6 @@ class Speedport:
         devices += data.get("addmwlandevice", []) + data.get("addmdevice", [])
         devices = sorted(devices, key=lambda d: int(d["mdevice_ipv4"].split(".")[-1]))
         return [WlanDevice(device) for device in devices]
-
-    @staticmethod
-    def need_auth(func):
-        @functools.wraps(func)
-        async def inner(self):
-            if not self._login_key:
-                _LOGGER.error("You need to login!")
-                raise PermissionError("You need to login!")
-            return await func(self)
-
-        return inner
 
     @property
     @need_auth
