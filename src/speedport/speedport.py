@@ -118,12 +118,12 @@ class Speedport:
         return await self.get("data/Status.json")
 
     @property
-    async def devices(self):
+    async def devices(self) -> dict[str, WlanDevice]:
         data = await self.get("data/DeviceList.json")
         devices = data.get("addmlandevice", []) + data.get("addmwlan5device", [])
         devices += data.get("addmwlandevice", []) + data.get("addmdevice", [])
         devices = sorted(devices, key=lambda d: int(d["mdevice_ipv4"].split(".")[-1]))
-        return [WlanDevice(device) for device in devices]
+        return {device.get("mdevice_mac"): WlanDevice(device) for device in devices}
 
     @property
     @need_auth

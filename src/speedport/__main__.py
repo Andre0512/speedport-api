@@ -97,10 +97,10 @@ async def main():
         await speedport.reboot()
     if args.get("devices"):
         if args.get("batch"):
-            for device in await speedport.devices:
+            for device in (await speedport.devices).values():
                 print(int(device.connected), device.ipv4, device.type, device.name, sep="\t")
         else:
-            print(data_table(await speedport.devices, ["ipv4", "name", "type", "connected"]))
+            print(data_table((await speedport.devices).values(), ["ipv4", "name", "type", "connected"]))
 
 
 async def reconnect(args, speedport):
