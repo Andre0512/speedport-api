@@ -10,7 +10,7 @@ from pathlib import Path
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from speedport import Speedport
+from speedport.speedport import Speedport
 
 _LOGGER = logging.getLogger("speedport")
 
