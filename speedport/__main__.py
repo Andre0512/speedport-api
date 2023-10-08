@@ -54,6 +54,17 @@ def data_table(data, keys):
     return text + line
 
 
+def batch_output(devices):
+    for device in devices.values():
+        print(
+            int(device.connected),
+            device.ipv4,
+            device.type,
+            device.name,
+            sep="\t",
+        )
+
+
 def get_arguments():
     """Get parsed arguments."""
     parser = argparse.ArgumentParser(description="Speedport: Command Line Utility")
@@ -100,16 +111,26 @@ def get_arguments():
     return vars(parser.parse_args())
 
 
-async def main():
-    args = get_arguments()
-    set_logger(args)
-    speedport = Speedport(args["host"], args.get("https"))
-    if not args.get("devices"):
-        if not (password := args["password"]):
-            password = getpass("Password of Speedports webinterface: ")
-        if not await speedport.login(password=password):
-            print("Can't login! Wrong password?")
-            return
+async def check_args(speedport, args):
+    if args.get("wps"):
+        await wps_enable(args, speedport)
+    if args.get("reconnect"):
+        await reconnect(args, speedport)
+    if args.get("reboot"):
+        await speedport.reboot()
+    if args.get("devices"):
+        if args.get("batch"):
+            batch_output(await speedport.devices)
+        else:
+            print(
+                data_table(
+                    (await speedport.devices).values(),
+                    ["ipv4", "name", "type", "connected"],
+                )
+            )
+
+
+async def check_wifi_args(speedport, args):
     if args.get("wifi") and args["wifi"] == "on":
         await speedport.wifi_on()
     elif args.get("wifi") and args["wifi"] == "off":
@@ -122,36 +143,26 @@ async def main():
         await speedport.wifi_office_on()
     elif args.get("office-wifi") and args["office-wifi"] == "off":
         await speedport.wifi_office_off()
-    if args.get("wps"):
-        await wps_enable(args, speedport)
-    if args.get("reconnect"):
-        await reconnect(args, speedport)
-    if args.get("reboot"):
-        await speedport.reboot()
-    if args.get("devices"):
-        if args.get("batch"):
-            for device in (await speedport.devices).values():
-                print(
-                    int(device.connected),
-                    device.ipv4,
-                    device.type,
-                    device.name,
-                    sep="\t",
-                )
-        else:
-            print(
-                data_table(
-                    (await speedport.devices).values(),
-                    ["ipv4", "name", "type", "connected"],
-                )
-            )
+
+
+async def main():
+    args = get_arguments()
+    set_logger(args)
+    speedport = Speedport(args["host"], args.get("https"))
+    if not args.get("devices"):
+        if not (password := args["password"]):
+            password = getpass("Password of Speedports webinterface: ")
+        if not await speedport.login(password=password):
+            print("Can't login! Wrong password?")
+            return
+    await check_wifi_args(speedport, args)
+    await check_args(speedport, args)
 
 
 async def reconnect(args, speedport):
     if not args.get("quiet"):
-        _LOGGER.info(
-            f"{(ip_data := await speedport.ip_data)['public_ip_v4']} / {ip_data['public_ip_v6']}"
-        )
+        ip_data = await speedport.ip_data
+        _LOGGER.info(f"{ip_data['public_ip_v4']} / {ip_data['public_ip_v6']}")
     await speedport.reconnect()
     if not args.get("quiet"):
         for i in range(240):

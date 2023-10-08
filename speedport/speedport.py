@@ -150,14 +150,14 @@ class Speedport:
     @need_auth
     async def ip_data(self):
         referer = "html/content/internet/con_ipdata.html"
-        return await self.get(f"data/IPData.json", referer=referer, auth=True)
+        return await self.get("data/IPData.json", referer=referer, auth=True)
 
     @property
     @need_auth
     async def wps_state(self):
         referer = "html/content/network/wlan_wps.html"
         return int(
-            (await self.get(f"data/WPSStatus.json", referer=referer))["wlan_wps_state"]
+            (await self.get("data/WPSStatus.json", referer=referer))["wlan_wps_state"]
         )
 
     async def _set_wifi(self, on=True, guest=False, office=False):
