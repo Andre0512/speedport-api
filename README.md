@@ -1,7 +1,13 @@
 **This python package is unofficial and is not related in any way to Telekom. It was developed by reversed engineered http requests and can stop working at anytime!**
   
 ## Speedport-API
+[![PyPI - Status](https://img.shields.io/pypi/status/speedport-api)](https://pypi.org/project/speedport-api)
+[![PyPI](https://img.shields.io/pypi/v/speedport-api?color=blue)](https://pypi.org/project/speedport-api)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/speedport-api)](https://www.python.org/)
+[![PyPI - License](https://img.shields.io/pypi/l/speedport-api)](https://github.com/Andre0512/speedport-api/blob/main/LICENSE)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/speedport-api)](https://pypistats.org/packages/speedport-api)  
 Control Telekom Speedport routers with Python!
+
 ### Installation
 ```commandline
 pip install speedport-api
