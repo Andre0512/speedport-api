@@ -11,7 +11,7 @@ setup(
     author="Andre Basche",
     description="Control Telekom Speedport routers with Python",
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     project_urls={
         "GitHub": "https://github.com/Andre0512/speedport-api",
         "PyPI": "https://pypi.org/project/speedport-api",
@@ -35,8 +35,8 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     entry_points={
-        'console_scripts': [
-            'speedport = speedport.__main__:start',
+        "console_scripts": [
+            "speedport = speedport.__main__:start",
         ]
-    }
+    },
 )
