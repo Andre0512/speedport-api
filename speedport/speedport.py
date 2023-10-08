@@ -15,6 +15,12 @@ from .device import WlanDevice
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.WARNING)
 
+DEFAULT_KEY = "cdc0cac1280b516e674f0057e4929bca84447cca8425007e33a88a5cf598a190"
+
+
+class LoginException(Exception):
+    pass
+
 
 def need_auth(func):
     @functools.wraps(func)
@@ -27,34 +33,44 @@ def need_auth(func):
     return inner
 
 
+def decode(data, key=""):
+    key = key or DEFAULT_KEY
+    ciphertext_tag = bytes.fromhex(data)
+    cipher = AES.new(bytes.fromhex(key), AES.MODE_CCM, bytes.fromhex(key)[:8])
+    decrypted = cipher.decrypt_and_verify(ciphertext_tag[:-16], ciphertext_tag[-16:])
+    try:
+        return simplify_response(json.loads(decrypted.decode()))
+    except JSONDecodeError:
+        return decrypted.decode()
+
+
+def encode(data, key=""):
+    key = key or DEFAULT_KEY
+    cipher = AES.new(bytes.fromhex(key), AES.MODE_CCM, bytes.fromhex(key)[:8])
+    ciphertext, tag = cipher.encrypt_and_digest(data.encode())
+    return ciphertext.hex() + tag.hex()
+
+
+def simplify_response(data):
+    result = {}
+    for item in data:
+        if isinstance(item["varvalue"], list):
+            list_item = {}
+            for sub_item in item["varvalue"]:
+                list_item[sub_item["varid"]] = sub_item["varvalue"]
+            result.setdefault(item["varid"], []).append(list_item)
+        else:
+            result[item["varid"]] = item["varvalue"]
+    return result
+
+
 class Speedport:
     def __init__(self, host="speedport.ip", https=False):
         # Is this the default key for everyone or should we parse it?
-        self._default_key = (
-            "cdc0cac1280b516e674f0057e4929bca84447cca8425007e33a88a5cf598a190"
-        )
         self._login_password = ""
         self._login_key = ""
         self._cookies = {}
         self._url = f"https://{host}" if https else f"http://{host}"
-
-    def decode(self, data, key=""):
-        key = key or self._default_key
-        ciphertext_tag = bytes.fromhex(data)
-        cipher = AES.new(bytes.fromhex(key), AES.MODE_CCM, bytes.fromhex(key)[:8])
-        decrypted = cipher.decrypt_and_verify(
-            ciphertext_tag[:-16], ciphertext_tag[-16:]
-        )
-        try:
-            return self._simplify_response(json.loads(decrypted.decode()))
-        except JSONDecodeError:
-            return decrypted.decode()
-
-    def encode(self, data, key=""):
-        key = key or self._default_key
-        cipher = AES.new(bytes.fromhex(key), AES.MODE_CCM, bytes.fromhex(key)[:8])
-        ciphertext, tag = cipher.encrypt_and_digest(data.encode())
-        return ciphertext.hex() + tag.hex()
 
     async def get(self, path, auth=False, referer=""):
         url = f"{self._url}/{path}"
@@ -67,16 +83,16 @@ class Speedport:
             connector=aiohttp.TCPConnector(verify_ssl=False)
         ) as session:
             async with session.get(url, **kwargs) as response:
-                _LOGGER.debug(f"GET - {url} - {response.status}")
-                key = self._login_key if auth else self._default_key
-                return self.decode(await response.text(), key=key)
+                _LOGGER.debug("GET - %s - %s", url, response.status)
+                key = self._login_key if auth else DEFAULT_KEY
+                return decode(await response.text(), key=key)
 
     async def post(self, path, data, referer):
         url = f"{self._url}/{path}"
         referer = f"{self._url}/{referer}"
         data.update({"httoken": await self._get_httoken(referer)})
         data = "&".join([f"{k}={v}" for k, v in data.items()])
-        data = self.encode(data, key=self._login_key)
+        data = encode(data, key=self._login_key)
         async with aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(verify_ssl=False)
         ) as session:
@@ -87,51 +103,39 @@ class Speedport:
                 data=data,
                 timeout=30,
             ) as response:
-                _LOGGER.debug(f"POST - {url} - {response.status}")
-                return self.decode(await response.text(), key=self._login_key)
+                _LOGGER.debug("POST - %s - %s", url, response.status)
+                return decode(await response.text(), key=self._login_key)
 
     async def _get_httoken(self, url):
         async with aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(verify_ssl=False)
         ) as session:
             async with session.get(url, cookies=self._cookies) as response:
-                _LOGGER.debug(f"GET - {url} - {response.status}")
+                _LOGGER.debug("GET - %s - %s", url, response.status)
                 return re.findall("_httoken = (\\d+)", await response.text())[0]
-
-    @staticmethod
-    def _simplify_response(data):
-        result = {}
-        for item in data:
-            if type(item["varvalue"]) is list:
-                list_item = {}
-                for i, sub_item in enumerate(item["varvalue"]):
-                    list_item[sub_item["varid"]] = sub_item["varvalue"]
-                result.setdefault(item["varid"], []).append(list_item)
-            else:
-                result[item["varid"]] = item["varvalue"]
-        return result
 
     async def _get_login_key(self):
         if not self._login_key:
-            self._login_key = (
-                await self.post("data/Login.json", {"getChallenge": "1"}, "/")
-            )["challenge"]
+            data = {"getChallenge": "1"}
+            if response := await self.post("data/Login.json", data, "/"):
+                self._login_key = response["challenge"]
         return self._login_key
 
     async def login(self, password):
         self._login_password = password
         url = f"{self._url}/data/Login.json"
-        login_key = sha256(
-            f"{await self._get_login_key()}:{password}".encode()
-        ).hexdigest()
-        data = self.encode("showpw=0&password=" + login_key)
+        login_data = f"{await self._get_login_key()}:{password}".encode()
+        login_key = sha256(login_data).hexdigest()
+        data = encode("showpw=0&password=" + login_key)
         async with aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(verify_ssl=False)
         ) as session:
             async with session.post(url, data=data) as response:
-                _LOGGER.debug(f"POST - {url} - {response.status}")
-                if result := self.decode(await response.text())["login"] == "success":
+                _LOGGER.debug("POST - %s - %s", url, response.status)
+                if result := decode(await response.text())["login"] == "success":
                     self._cookies = response.cookies
+                else:
+                    raise LoginException("Can't login")
                 return result
 
     @property
@@ -160,14 +164,16 @@ class Speedport:
             (await self.get("data/WPSStatus.json", referer=referer))["wlan_wps_state"]
         )
 
-    async def _set_wifi(self, on=True, guest=False, office=False):
+    async def _set_wifi(self, status: bool, guest=False, office=False):
         """Set wifi on/off"""
         extra = "guest" if guest else "office" if office else ""
-        _LOGGER.info(f"Turn {['off', 'on'][bool(on)]} {extra if extra else ''} wifi...")
+        _LOGGER.info(
+            "Turn %s %s wifi...", ["off", "on"][bool(status)], extra if extra else ""
+        )
         data = (
-            {f"wlan_{extra}_active": str(int(on))}
+            {f"wlan_{extra}_active": str(int(status))}
             if extra
-            else {"use_wlan": str(int(on))}
+            else {"use_wlan": str(int(status))}
         )
         referer = f"html/content/network/wlan_{extra if extra else 'basic'}.html"
         return await self.post(
@@ -176,27 +182,27 @@ class Speedport:
 
     @need_auth
     async def wifi_on(self):
-        await self._set_wifi(on=True, guest=False)
+        await self._set_wifi(status=True, guest=False)
 
     @need_auth
     async def wifi_off(self):
-        await self._set_wifi(on=False, guest=False)
+        await self._set_wifi(status=False, guest=False)
 
     @need_auth
     async def wifi_guest_on(self):
-        await self._set_wifi(on=True, guest=True)
+        await self._set_wifi(status=True, guest=True)
 
     @need_auth
     async def wifi_guest_off(self):
-        await self._set_wifi(on=False, guest=True)
+        await self._set_wifi(status=False, guest=True)
 
     @need_auth
     async def wifi_office_on(self):
-        await self._set_wifi(on=True, office=True)
+        await self._set_wifi(status=True, office=True)
 
     @need_auth
     async def wifi_office_off(self):
-        await self._set_wifi(on=False, office=True)
+        await self._set_wifi(status=False, office=True)
 
     @need_auth
     async def wps_on(self):
