@@ -2,6 +2,8 @@ import functools
 import logging
 from datetime import datetime
 
+import aiohttp
+
 from .api import SpeedportApi
 from .device import WlanDevice
 
@@ -13,21 +15,19 @@ class LoginException(Exception):
     pass
 
 
-def need_auth(func):
-    @functools.wraps(func)
-    async def inner(self):
-        if not self._login_key:
-            _LOGGER.error("You need to login!")
-            raise PermissionError("You need to login!")
-        return await func(self)
-
-    return inner
-
-
 class Speedport:
-    def __init__(self, **kwargs):
-        self._api_kwargs = kwargs
+    def __init__(
+        self,
+        host: str = "speedport.ip",
+        password: str = "",
+        https: bool = False,
+        session: aiohttp.ClientSession | None = None,
+    ):
         self._api: SpeedportApi | None = None
+        self._host: str = host
+        self._password: str = password
+        self._https: bool = https
+        self._session: aiohttp.ClientSession | None = session
         self._status = {}
         self._ip_data = {}
 
@@ -39,7 +39,9 @@ class Speedport:
         await self.close()
 
     async def create(self):
-        self._api = await SpeedportApi(**self._api_kwargs).create()
+        self._api = await SpeedportApi(
+            self._host, self._password, self._https, self._session
+        ).create()
 
     async def close(self):
         if self._api:
@@ -64,6 +66,15 @@ class Speedport:
 
     async def wifi_off(self):
         await self.api.set_wifi(status=False, guest=False)
+
+    async def wps_on(self):
+        await self.api.wps_on()
+
+    async def reconnect(self):
+        await self.api.reconnect()
+
+    async def reboot(self):
+        await self.api.reboot()
 
     async def wifi_guest_on(self):
         await self.api.set_wifi(status=True, guest=True)
@@ -178,3 +189,7 @@ class Speedport:
     @property
     def used_ip_v6_lan(self):
         return self._ip_data.get("used_ip_v6_lan", "")
+
+    @property
+    async def wps_remaining(self):
+        return int((await self.api.get_wps_state())["wlan_wps_state"])

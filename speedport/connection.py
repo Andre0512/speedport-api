@@ -16,7 +16,10 @@ _LOGGER = logging.getLogger(__name__)
 def decode(data, key: str = "") -> dict[str, list | dict | str] | str:
     """Decode speedport's self-implemented encryption"""
     key = key or const.DEFAULT_KEY
-    ciphertext_tag = bytes.fromhex(data)
+    try:
+        ciphertext_tag = bytes.fromhex(data)
+    except ValueError as exc:
+        raise exceptions.DecryptionKeyError("Wrong decryption key") from exc
     cipher = AES.new(bytes.fromhex(key), AES.MODE_CCM, bytes.fromhex(key)[:8])
     decrypted = cipher.decrypt_and_verify(ciphertext_tag[:-16], ciphertext_tag[-16:])
     try:
@@ -52,11 +55,10 @@ def simplify_response(
 class Connection:
     def __init__(
         self,
-        host="speedport.ip",
-        https=False,
+        host: str = "speedport.ip",
+        https: bool = False,
         session: aiohttp.ClientSession | None = None,
     ):
-        self._login_password = ""
         self._login_key = ""
         self._cookies = {}
         self._url = f"https://{host}" if https else f"http://{host}"
@@ -120,7 +122,6 @@ class Connection:
         return self._login_key
 
     async def login(self, password: str):
-        self._login_password = password
         url = f"{self._url}/data/Login.json"
         login_data = f"{await self._get_login_key()}:{password}".encode()
         login_key = sha256(login_data).hexdigest()
@@ -132,3 +133,7 @@ class Connection:
             else:
                 raise exceptions.LoginException("Can't login")
             return result
+
+    @property
+    def is_logged_in(self):
+        return bool(self._login_key)
