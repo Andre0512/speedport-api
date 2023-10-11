@@ -1,4 +1,3 @@
-import functools
 import logging
 from datetime import datetime
 
@@ -32,8 +31,7 @@ class Speedport:
         self._ip_data = {}
 
     async def __aenter__(self):
-        await self.create()
-        return self
+        return await self.create()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
@@ -42,6 +40,7 @@ class Speedport:
         self._api = await SpeedportApi(
             self._host, self._password, self._https, self._session
         ).create()
+        return self
 
     async def close(self):
         if self._api:
@@ -127,11 +126,11 @@ class Speedport:
         return datetime.fromisoformat(self._status.get("inet_uptime"))
 
     @property
-    def onlinestatus(self):
+    def online_status(self):
         return self._status.get("onlinestatus", "")
 
     @property
-    def loginstate(self):
+    def login_state(self):
         return bool(self._status.get("loginstate"))
 
     @property
@@ -149,6 +148,18 @@ class Speedport:
     @property
     def wlan_office_active(self):
         return bool(self._status.get("wlan_office_active"))
+
+    @property
+    def wlan_ssid(self):
+        return self._status.get("wlan_ssid")
+
+    @property
+    def wlan_guest_ssid(self):
+        return self._status.get("wlan_guest_ssid")
+
+    @property
+    def wlan_office_ssid(self):
+        return self._status.get("wlan_office_ssid")
 
     @property
     def dns_v4(self):
@@ -193,3 +204,6 @@ class Speedport:
     @property
     async def wps_remaining(self):
         return int((await self.api.get_wps_state())["wlan_wps_state"])
+
+    async def login(self, password=""):
+        return await self.api.login(password or self._password)

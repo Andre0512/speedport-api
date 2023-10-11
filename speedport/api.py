@@ -14,7 +14,7 @@ def need_auth(func):
     async def inner(self: "SpeedportApi", *args, **kwargs):
         if not self.api.is_logged_in:
             if not self.password:
-                error = f"You need to set a password to use \"{func.__name__}\""
+                error = f'You need to set a password to use "{func.__name__}"'
                 _LOGGER.error(error)
                 raise PermissionError(error)
             await self.api.login(self.password)
@@ -23,6 +23,7 @@ def need_auth(func):
         except exceptions.DecryptionKeyError:
             await self.api.login(self.password)
             return await func(self, *args, **kwargs)
+
     return inner
 
 
@@ -122,3 +123,6 @@ class SpeedportApi:
             {"reboot_device": "true"},
             "html/content/config/restart.html",
         )
+
+    async def login(self, password=""):
+        return await self.api.login(password or self.password)

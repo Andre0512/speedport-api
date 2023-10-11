@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -115,25 +116,36 @@ class Connection:
             return re.findall("_httoken = (\\d+)", await response.text())[0]
 
     async def _get_login_key(self):
-        if not self._login_key:
-            data = {"getChallenge": "1"}
-            if response := await self.post("data/Login.json", data, "/"):
-                self._login_key = response["challenge"]
+        data = {"getChallenge": "1"}
+        if response := await self.post("data/Login.json", data, "/"):
+            self._login_key = response["challenge"]
         return self._login_key
 
     async def login(self, password: str):
         url = f"{self._url}/data/Login.json"
+        self.clear()
         login_data = f"{await self._get_login_key()}:{password}".encode()
         login_key = sha256(login_data).hexdigest()
         data = encode("showpw=0&password=" + login_key)
         async with self._session.post(url, data=data) as response:
             _LOGGER.debug("POST - %s - %s", url, response.status)
-            if result := decode(await response.text())["login"] == "success":
-                self._cookies = response.cookies
-            else:
-                raise exceptions.LoginException("Can't login")
-            return result
+            result = decode(await response.text())
+            _LOGGER.debug(result)
+        if result["login"] == "success":
+            self._cookies = response.cookies
+        elif (sleep_time := result.get("login_locked")) and int(sleep_time) < 60:
+            _LOGGER.warning("Can't login, wait %ss...", sleep_time)
+            await asyncio.sleep(int(sleep_time) + 1)
+            return await self.login(password)
+        else:
+            _LOGGER.error(result)
+            raise exceptions.LoginException("Can't login")
+        return result["login"]
 
     @property
     def is_logged_in(self):
         return bool(self._login_key)
+
+    def clear(self):
+        self._login_key = ""
+        self._session.cookie_jar.clear_domain(self._url)
