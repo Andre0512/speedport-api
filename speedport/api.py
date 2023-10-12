@@ -49,7 +49,7 @@ class SpeedportApi:
         await self.close()
 
     async def create(self):
-        self._api = await Connection(self._host, self._https, self._session).create()
+        self._api = await Connection(self._url, self._session).create()
         return self
 
     async def close(self):
