@@ -40,6 +40,7 @@ class Speedport:
         self._api = await SpeedportApi(
             self._host, self._password, self._https, self._session
         ).create()
+        await self.update_status()
         return self
 
     async def close(self):
@@ -139,15 +140,15 @@ class Speedport:
 
     @property
     def wlan_active(self):
-        return bool(self._status.get("use_wlan"))
+        return bool(int(self._status.get("use_wlan")))
 
     @property
     def wlan_guest_active(self):
-        return bool(self._status.get("wlan_guest_active"))
+        return bool(int(self._status.get("wlan_guest_active")))
 
     @property
     def wlan_office_active(self):
-        return bool(self._status.get("wlan_office_active"))
+        return bool(int(self._status.get("wlan_office_active")))
 
     @property
     def wlan_ssid(self):
