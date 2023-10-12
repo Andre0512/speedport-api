@@ -39,6 +39,7 @@ class SpeedportApi:
         self._host: str = host
         self._password: str = password
         self._https: bool = https
+        self._url = f"https://{host}" if https else f"http://{host}"
         self._session: aiohttp.ClientSession | None = session
 
     async def __aenter__(self):
@@ -64,6 +65,10 @@ class SpeedportApi:
     @property
     def password(self) -> str:
         return self._password
+
+    @property
+    def url(self) -> str:
+        return self._url
 
     async def get_status(self):
         return await self.api.get("data/Status.json")

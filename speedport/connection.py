@@ -56,13 +56,12 @@ def simplify_response(
 class Connection:
     def __init__(
         self,
-        host: str = "speedport.ip",
-        https: bool = False,
+        host_url: str = "",
         session: aiohttp.ClientSession | None = None,
     ):
         self._login_key = ""
         self._cookies = {}
-        self._url = f"https://{host}" if https else f"http://{host}"
+        self._url = host_url
         self._session: aiohttp.ClientSession | None = session
 
     async def __aenter__(self):
