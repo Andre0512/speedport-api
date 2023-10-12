@@ -1,2 +1,2 @@
-aiohttp
-pycryptodome
+aiohttp~=3.8
+pycryptodome~=3.18
