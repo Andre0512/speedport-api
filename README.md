@@ -8,6 +8,12 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/speedport-api)](https://pypistats.org/packages/speedport-api)  
 Control Telekom Speedport routers with Python!
 
+
+| ⚠️ **Use v0.4.x for cmd interface** ⚠️ |
+|----------------------------------------|
+
+I'm developing a [Speedport Home Assistant integration](https://github.com/Andre0512/speedport), currently this breaks the cmd interface functionality. I will fix this soon!
+
 ### Installation
 ```commandline
 pip install speedport-api

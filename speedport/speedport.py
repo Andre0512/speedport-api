@@ -36,6 +36,19 @@ class Speedport:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
+    def __getitem__(self, item):
+        if (status := self._status.get(item)) is not None:
+            return status
+        if (ip_data := self._ip_data.get(item)) is not None:
+            return ip_data
+        raise KeyError
+
+    def get(self, item, default=None):
+        try:
+            return self[item]
+        except KeyError:
+            return default
+
     async def create(self):
         self._api = await SpeedportApi(
             self._host, self._password, self._https, self._session
