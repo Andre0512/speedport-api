@@ -60,7 +60,6 @@ class Connection:
         session: aiohttp.ClientSession | None = None,
     ):
         self._login_key = ""
-        self._cookies = {}
         self._url = host_url
         self._session: aiohttp.ClientSession | None = session
 
@@ -73,7 +72,11 @@ class Connection:
     async def create(self) -> Self:
         """Create aiohttp session"""
         connector = aiohttp.TCPConnector(verify_ssl=False)
-        self._session = aiohttp.ClientSession(connector=connector)
+        if not self._session:
+            jar = aiohttp.CookieJar(unsafe=True)
+            self._session = aiohttp.ClientSession(connector=connector, cookie_jar=jar)
+        else:
+            self._session.cookie_jar._unsafe = True
         return self
 
     async def close(self):
@@ -83,12 +86,10 @@ class Connection:
 
     async def get(self, path: str, auth: bool = False, referer: str = ""):
         url = f"{self._url}/{path}"
-        kwargs = {"cookies": self._cookies}
         if referer:
             referer = f"{self._url}/{referer}"
-            kwargs.update({"headers": {"Referer": referer}})
             url += f"?_tn={await self._get_httoken(referer)}"
-        async with self._session.get(url, **kwargs) as response:
+        async with self._session.get(url, headers={"Referer": referer}) as response:
             _LOGGER.debug("GET - %s - %s", url, response.status)
             key = self._login_key if auth else const.DEFAULT_KEY
             return decode(await response.text(), key=key)
@@ -101,7 +102,6 @@ class Connection:
         data = encode(data, key=self._login_key)
         async with self._session.post(
             url,
-            cookies=self._cookies,
             headers={"Referer": referer},
             data=data,
             timeout=30,
@@ -110,7 +110,7 @@ class Connection:
             return decode(await response.text(), key=self._login_key)
 
     async def _get_httoken(self, url: str):
-        async with self._session.get(url, cookies=self._cookies) as response:
+        async with self._session.get(url) as response:
             _LOGGER.debug("GET - %s - %s", url, response.status)
             return re.findall("_httoken = (\\d+)", await response.text())[0]
 
@@ -130,13 +130,11 @@ class Connection:
             _LOGGER.debug("POST - %s - %s", url, response.status)
             result = decode(await response.text())
             _LOGGER.debug(result)
-        if result["login"] == "success":
-            self._cookies = response.cookies
-        elif (sleep_time := result.get("login_locked")) and int(sleep_time) < 60:
+        if (sleep_time := result.get("login_locked")) and int(sleep_time) < 60:
             _LOGGER.warning("Can't login, wait %ss...", sleep_time)
             await asyncio.sleep(int(sleep_time) + 1)
             return await self.login(password)
-        else:
+        if result["login"] != "success":
             _LOGGER.error(result)
             raise exceptions.LoginException("Can't login")
         return result["login"]

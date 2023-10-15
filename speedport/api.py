@@ -76,6 +76,7 @@ class SpeedportApi:
     async def get_devices(self):
         return await self.api.get("data/DeviceList.json")
 
+    @need_auth
     async def get_ip_data(self):
         referer = "html/content/internet/con_ipdata.html"
         return await self.api.get("data/IPData.json", referer=referer, auth=True)
