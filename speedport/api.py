@@ -1,5 +1,6 @@
 import functools
 import logging
+from datetime import datetime, timedelta
 
 import aiohttp
 
@@ -20,9 +21,18 @@ def need_auth(func):
             await self.api.login(self.password)
         try:
             return await func(self, *args, **kwargs)
-        except exceptions.DecryptionKeyError:
-            await self.api.login(self.password)
-            return await func(self, *args, **kwargs)
+        except exceptions.DecryptionKeyError as exception:
+            if not self.last_logout:
+                self.last_logout = datetime.now()
+            if datetime.now() > (
+                time := self.last_logout + timedelta(minutes=self.pause_time)
+            ):
+                self.last_logout = None
+                await self.api.login(self.password)
+                return await func(self, *args, **kwargs)
+            remaining = datetime.now() - time
+            error = f"Paused for 00:{remaining.seconds // 60:02d}:{remaining.seconds % 60:02d}"
+            raise exceptions.LoginPausedError(error) from exception
 
     return inner
 
@@ -34,6 +44,7 @@ class SpeedportApi:
         password: str = "",
         https: bool = False,
         session: aiohttp.ClientSession | None = None,
+        pause_time: int = 5,
     ):
         self._api: Connection | None = None
         self._host: str = host
@@ -41,6 +52,8 @@ class SpeedportApi:
         self._https: bool = https
         self._url = f"https://{host}" if https else f"http://{host}"
         self._session: aiohttp.ClientSession | None = session
+        self._pause_time: int = pause_time
+        self._last_logout: datetime | None = None
 
     async def __aenter__(self):
         return await self.create()
@@ -69,6 +82,22 @@ class SpeedportApi:
     @property
     def url(self) -> str:
         return self._url
+
+    @property
+    def pause_time(self) -> int:
+        return self._pause_time
+
+    @pause_time.setter
+    def pause_time(self, pause_time: int):
+        self._pause_time = pause_time
+
+    @property
+    def last_logout(self) -> datetime | None:
+        return self._last_logout
+
+    @last_logout.setter
+    def last_logout(self, last_logout: datetime | None):
+        self._last_logout = last_logout
 
     async def get_status(self):
         return await self.api.get("data/Status.json")
