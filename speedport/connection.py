@@ -61,6 +61,7 @@ class Connection:
     ):
         self._login_key = ""
         self._url = host_url
+        self._own_session = session is None
         self._session: aiohttp.ClientSession | None = session
 
     async def __aenter__(self):
@@ -81,7 +82,7 @@ class Connection:
 
     async def close(self):
         """Close aiohttp session"""
-        if self._session:
+        if self._own_session:
             await self._session.close()
 
     async def get(self, path: str, auth: bool = False, referer: str = ""):
