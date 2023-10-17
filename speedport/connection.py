@@ -89,7 +89,8 @@ class Connection:
         url = f"{self._url}/{path}"
         if referer:
             referer = f"{self._url}/{referer}"
-            url += f"?_tn={await self._get_httoken(referer)}"
+            if token := await self._get_httoken(referer):
+                url += f"?_tn={token}"
         async with self._session.get(url, headers={"Referer": referer}) as response:
             _LOGGER.debug("GET - %s - %s", url, response.status)
             key = self._login_key if auth else const.DEFAULT_KEY
@@ -98,7 +99,8 @@ class Connection:
     async def post(self, path: str, data: dict[str, str], referer: str):
         url = f"{self._url}/{path}"
         referer = f"{self._url}/{referer}"
-        data.update({"httoken": await self._get_httoken(referer)})
+        if token := await self._get_httoken(referer):
+            data.update({"httoken": token})
         data = "&".join([f"{k}={v}" for k, v in data.items()])
         data = encode(data, key=self._login_key)
         async with self._session.post(
@@ -110,10 +112,12 @@ class Connection:
             _LOGGER.debug("POST - %s - %s", url, response.status)
             return decode(await response.text(), key=self._login_key)
 
-    async def _get_httoken(self, url: str):
+    async def _get_httoken(self, url: str) -> str:
         async with self._session.get(url) as response:
             _LOGGER.debug("GET - %s - %s", url, response.status)
-            return re.findall("_httoken = (\\d+)", await response.text())[0]
+            if token := re.findall("httoken = (\\d+)", await response.text()):
+                return token[0]
+            return ""
 
     async def _get_login_key(self):
         data = {"getChallenge": "1"}
