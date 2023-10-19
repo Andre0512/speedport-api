@@ -23,6 +23,7 @@ def need_auth(func):
             return await func(self, *args, **kwargs)
         except exceptions.DecryptionKeyError as exception:
             if not self.last_logout:
+                _LOGGER.info(f"Paused fetching for {self.pause_time} min")
                 self.last_logout = datetime.now()
             if datetime.now() > (
                 time := self.last_logout + timedelta(minutes=self.pause_time)
@@ -30,8 +31,9 @@ def need_auth(func):
                 self.last_logout = None
                 await self.api.login(self.password)
                 return await func(self, *args, **kwargs)
-            remaining = datetime.now() - time
+            remaining = time - datetime.now()
             error = f"Paused for 00:{remaining.seconds // 60:02d}:{remaining.seconds % 60:02d}"
+            _LOGGER.debug(error)
             raise exceptions.LoginPausedError(error) from exception
 
     return inner
@@ -99,11 +101,25 @@ class SpeedportApi:
     def last_logout(self, last_logout: datetime | None):
         self._last_logout = last_logout
 
+    @need_auth
+    async def get_secure_status(self):
+        return await self.api.get("data/SecureStatus.json", auth=True)
+
+    @need_auth
+    async def get_phone_handler(self):
+        return await self.api.get("data/IPPhoneHandler.json", auth=True)
+
+    async def get_router(self):
+        return await self.api.get("data/Router.json")
+
     async def get_status(self):
         return await self.api.get("data/Status.json")
 
     async def get_devices(self):
         return await self.api.get("data/DeviceList.json")
+
+    async def get_login(self):
+        return await self.api.get("data/Login.json")
 
     @need_auth
     async def get_ip_data(self):
