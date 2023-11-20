@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="speedport-api",
-    version="0.5.7",
+    version="0.5.8",
     author="Andre Basche",
     description="Control Telekom Speedport routers with Python",
     long_description=long_description,
@@ -21,7 +21,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     python_requires=">=3.8",
-    install_requires=["aiohttp~=3.9", "pycryptodome~=3.19"],
+    install_requires=["aiohttp>=3.8", "pycryptodome>=3.18"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
