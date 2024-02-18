@@ -63,6 +63,8 @@ class Connection:
         self._url = host_url
         self._own_session = session is None
         self._session: aiohttp.ClientSession | None = session
+        self._verify_ssl: bool = False
+        self._timeout: float = 30
 
     async def __aenter__(self):
         return await self.create()
@@ -70,9 +72,13 @@ class Connection:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
+    @property
+    def _kwargs(self):
+        return {"verify_ssl": self._verify_ssl, "timeout": self._timeout}
+
     async def create(self) -> Self:
         """Create aiohttp session"""
-        connector = aiohttp.TCPConnector(verify_ssl=False)
+        connector = aiohttp.TCPConnector(verify_ssl=self._verify_ssl)
         if not self._session:
             jar = aiohttp.CookieJar(unsafe=True)
             self._session = aiohttp.ClientSession(connector=connector, cookie_jar=jar)
@@ -91,7 +97,9 @@ class Connection:
             referer = f"{self._url}/{referer}"
             if token := await self._get_httoken(referer):
                 url += f"?_tn={token}"
-        async with self._session.get(url, headers={"Referer": referer}) as response:
+        async with self._session.get(
+            url, headers={"Referer": referer}, **self._kwargs
+        ) as response:
             _LOGGER.debug("GET - %s - %s", url, response.status)
             key = self._login_key if auth else const.DEFAULT_KEY
             return decode(await response.text(), key=key)
@@ -104,16 +112,13 @@ class Connection:
         data = "&".join([f"{k}={v}" for k, v in data.items()])
         data = encode(data, key=self._login_key)
         async with self._session.post(
-            url,
-            headers={"Referer": referer},
-            data=data,
-            timeout=30,
+            url, headers={"Referer": referer}, data=data, **self._kwargs
         ) as response:
             _LOGGER.debug("POST - %s - %s", url, response.status)
             return decode(await response.text(), key=self._login_key)
 
     async def _get_httoken(self, url: str) -> str:
-        async with self._session.get(url) as response:
+        async with self._session.get(url, **self._kwargs) as response:
             _LOGGER.debug("GET - %s - %s", url, response.status)
             if token := re.findall("httoken = (\\d+)", await response.text()):
                 return token[0]
@@ -131,7 +136,7 @@ class Connection:
         login_data = f"{await self._get_login_key()}:{password}".encode()
         login_key = sha256(login_data).hexdigest()
         data = encode("showpw=0&password=" + login_key)
-        async with self._session.post(url, data=data) as response:
+        async with self._session.post(url, data=data, **self._kwargs) as response:
             _LOGGER.debug("POST - %s - %s", url, response.status)
             result = decode(await response.text())
             _LOGGER.debug(result)
