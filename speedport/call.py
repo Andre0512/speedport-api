@@ -16,7 +16,9 @@ class Call:
         try:
             return self.__getattribute__(item)
         except AttributeError:
-            return self._data.get(f"{self._call_type}_{item}", self.__getattribute__(item))
+            return self._data.get(
+                f"{self._call_type}_{item}", self.__getattribute__(item)
+            )
 
     @property
     def data(self):
@@ -24,7 +26,7 @@ class Call:
 
     @property
     def type(self):
-        return self._call_type.replace("calls","")
+        return self._call_type.replace("calls", "")
 
     @property
     def connection(self):

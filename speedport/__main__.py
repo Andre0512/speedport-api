@@ -49,7 +49,9 @@ def data_table(data, keys):
     for d in data:
         text += (
             "| "
-            + " | ".join([f"{str(d[key]):<{length}}" for key, length in columns.items()])
+            + " | ".join(
+                [f"{str(d[key]):<{length}}" for key, length in columns.items()]
+            )
             + " |\n"
         )
     return text + line

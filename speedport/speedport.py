@@ -95,7 +95,6 @@ class Speedport:
         result.sort(key=lambda d: d.date)
         return result
 
-
     async def wifi_on(self):
         await self.api.set_wifi(status=True, guest=False)
 
