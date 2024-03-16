@@ -132,6 +132,11 @@ class SpeedportApi:
         return await self.api.get("data/WPSStatus.json", referer=referer)
 
     @need_auth
+    async def get_phone_calls(self):
+        referer = "html/content/phone/phone_call_taken.html"
+        return await self.api.get("data/PhoneCalls.json", referer=referer, auth=True)
+
+    @need_auth
     async def set_wifi(self, status=True, guest=False, office=False):
         """Set wifi on/off"""
         extra = "guest" if guest else "office" if office else ""

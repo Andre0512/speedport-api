@@ -6,6 +6,7 @@ import aiohttp
 
 from . import exceptions
 from .api import SpeedportApi
+from .call import Call
 from .device import WlanDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -82,6 +83,18 @@ class Speedport:
         devices += data.get("addmwlandevice", []) + data.get("addmdevice", [])
         devices = sorted(devices, key=lambda d: int(d["mdevice_ipv4"].split(".")[-1]))
         return {device.get("mdevice_mac"): WlanDevice(device) for device in devices}
+
+    @property
+    async def calls(self) -> list[Call]:
+        data = await self.api.get_phone_calls()
+        types = ["dialedcalls", "missedcalls", "takencalls"]
+        result: list[Call] = []
+        for call_type in types:
+            for call in data.get(f"add{call_type}"):
+                result.append(Call(call, call_type))
+        result.sort(key=lambda d: d.date)
+        return result
+
 
     async def wifi_on(self):
         await self.api.set_wifi(status=True, guest=False)
