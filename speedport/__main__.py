@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import argparse
 import asyncio
 import logging
@@ -48,7 +49,7 @@ def data_table(data, keys):
     for d in data:
         text += (
             "| "
-            + " | ".join([f"{d[key]:<{length}}" for key, length in columns.items()])
+            + " | ".join([f"{str(d[key]):<{length}}" for key, length in columns.items()])
             + " |\n"
         )
     return text + line
@@ -108,6 +109,8 @@ def get_arguments():
     wps.add_argument("wps", help="Turn on wps for 2 minutes", action="store_true")
     devices = subparser.add_parser("devices", help="Output devices")
     devices.add_argument("devices", help="List connected devices", action="store_true")
+    calls = subparser.add_parser("calls", help="Output calls")
+    calls.add_argument("calls", help="List last calls", action="store_true")
     return vars(parser.parse_args())
 
 
@@ -126,6 +129,16 @@ async def check_args(speedport, args):
                 data_table(
                     (await speedport.devices).values(),
                     ["ipv4", "name", "type", "connected"],
+                )
+            )
+    if args.get("calls"):
+        if args.get("batch"):
+            batch_output(await speedport.devices)
+        else:
+            print(
+                data_table(
+                    await speedport.calls,
+                    ["number", "type", "duration", "date"],
                 )
             )
 
@@ -148,26 +161,25 @@ async def check_wifi_args(speedport, args):
 async def main():
     args = get_arguments()
     set_logger(args)
-    speedport = Speedport(args["host"], args.get("https"))
+    password = ""
     if not args.get("devices"):
         if not (password := args["password"]):
             password = getpass("Password of Speedports webinterface: ")
-        if not await speedport.login(password=password):
-            print("Can't login! Wrong password?")
-            return
-    await check_wifi_args(speedport, args)
-    await check_args(speedport, args)
+    async with Speedport(args["host"], password, args.get("https")) as speedport:
+        await check_wifi_args(speedport, args)
+        await check_args(speedport, args)
 
 
 async def reconnect(args, speedport):
     if not args.get("quiet"):
-        ip_data = await speedport.ip_data
-        _LOGGER.info(f"{ip_data['public_ip_v4']} / {ip_data['public_ip_v6']}")
+        await speedport.update_ip_data()
+        _LOGGER.info(f"{speedport.public_ip_v4} / {speedport.public_ip_v6}")
     await speedport.reconnect()
     if not args.get("quiet"):
         for i in range(240):
-            if (ip_data := await speedport.ip_data)["onlinestatus"] == "online":
-                _LOGGER.info(f"{ip_data['public_ip_v4']} / {ip_data['public_ip_v6']}")
+            await speedport.update_ip_data()
+            if await speedport.online_status == "online":
+                _LOGGER.info(f"{speedport.public_ip_v4} / {speedport.public_ip_v6}")
                 break
             await asyncio.sleep(0.5)
             print(f"Connecting.{'.' * (i % 3)}  ", end="\r", flush=True)

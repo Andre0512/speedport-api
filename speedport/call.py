@@ -16,14 +16,14 @@ class Call:
         try:
             return self.__getattribute__(item)
         except AttributeError:
-            return self._data.get(f"{self._call_type}_{item}", self._data.get(item))
+            return self._data.get(f"{self._call_type}_{item}", self.__getattribute__(item))
 
     @property
     def data(self):
         return self._data
 
     @property
-    def call_type(self):
+    def type(self):
         return self._call_type.replace("calls","")
 
     @property
