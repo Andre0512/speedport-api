@@ -92,38 +92,30 @@ def get_arguments():
         "-t", "--table", help="print output as table (default)", action="store_true"
     )
     subparser = parser.add_subparsers(
-        title="commands", metavar="COMMAND", required=True
+        title="commands", metavar="COMMAND", required=True, dest="command"
     )
     for network in ["", "guest-", "office-"]:
         wifi = subparser.add_parser(f"{network}wifi", help=f"Turn on/off {network}wifi")
         wifi.add_argument(
             f"{network}wifi", choices=["on", "off"], help=f"Turn on/off {network}wifi"
         )
-    reconnect = subparser.add_parser(
-        "reconnect", help="Reconnect internet and receive new ip"
-    )
-    reconnect.add_argument(
-        "reconnect", help="Reconnect internet and receive new ip", action="store_true"
-    )
-    reboot = subparser.add_parser("reboot", help="Reboot device")
-    reboot.add_argument("reboot", help="Reboot device", action="store_true")
-    wps = subparser.add_parser("wps", help="Turn on wps for 2 minutes")
-    wps.add_argument("wps", help="Turn on wps for 2 minutes", action="store_true")
-    devices = subparser.add_parser("devices", help="Output devices")
-    devices.add_argument("devices", help="List connected devices", action="store_true")
-    calls = subparser.add_parser("calls", help="Output calls")
-    calls.add_argument("calls", help="List last calls", action="store_true")
+    subparser.add_parser("reconnect", help="Reconnect internet and receive new ip")
+    subparser.add_parser("reboot", help="Reboot device")
+    subparser.add_parser("wps", help="Turn on wps for 2 minutes")
+    subparser.add_parser("devices", help="Output devices")
+    subparser.add_parser("calls", help="Output calls")
     return vars(parser.parse_args())
 
 
 async def check_args(speedport, args):
-    if args.get("wps"):
+    command = args.get("command")
+    if command == "wps":
         await wps_enable(args, speedport)
-    if args.get("reconnect"):
+    if command == "reconnect":
         await reconnect(args, speedport)
-    if args.get("reboot"):
+    if command == "reboot":
         await speedport.reboot()
-    if args.get("devices"):
+    if command == "devices":
         if args.get("batch"):
             batch_output(await speedport.devices)
         else:
@@ -133,7 +125,7 @@ async def check_args(speedport, args):
                     ["ipv4", "name", "type", "connected"],
                 )
             )
-    if args.get("calls"):
+    if command == "calls":
         if args.get("batch"):
             batch_output(await speedport.devices)
         else:
@@ -164,7 +156,7 @@ async def main():
     args = get_arguments()
     set_logger(args)
     password = ""
-    if not args.get("devices"):
+    if args.get("command") != "devices":
         if not (password := args["password"]):
             password = getpass("Password of Speedports webinterface: ")
     async with Speedport(args["host"], password, args.get("https")) as speedport:
